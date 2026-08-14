@@ -873,7 +873,7 @@ function renderB(root) {
       <div class="eyebrow" style="margin-bottom:8px">Adapters needing attention</div>
       <div class="tablewrap" style="border:1px solid var(--line);border-radius:var(--r);margin-bottom:24px">
         <table class="grid">
-          <tbody>${TOOLS.filter(t => t.state !== "ok").map(t => `<tr>
+          <tbody>${TOOLS.filter(t => t.state === "warn" || t.state === "crit").map(t => `<tr>
             <td style="width:1px">${toolBadge(t.id)}</td>
             <td><b style="font-weight:500">${esc(t.name)}</b><div class="dim" style="font-size:11px">${esc(t.note)}</div></td>
             <td style="text-align:right">${statePill(t.state)}</td>
