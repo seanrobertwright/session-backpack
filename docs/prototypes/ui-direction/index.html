@@ -1081,17 +1081,22 @@ function renderC(root) {
 }
 
 /* ═══ VARIANT U — Unified ═════════════════════════════════════════════════
-   Home once, browser switchable. The three session views share one filter
-   sidebar and one selection, so switching view is a change of shape, not of
-   place — that shared state is the whole claim this variant is testing. */
+   All three directions ship, chosen by the user. Per the call on #16 the
+   preference is GLOBAL and singular — pick Console, Navigator or Timeline once
+   and both Home and Sessions adopt that shape, so each original direction stays
+   intact end to end rather than being mixed into nine hybrids.
+   Filters and selection are held by the shell, not the shape, so changing view
+   is a change of shape and never a change of place.
+   The bodies deliberately reuse .vA / .vB / .vC rules — that reuse is the claim
+   being tested (three views of one app, not three apps), not an accident. */
 
 function renderU(root) {
-  let nav = "home";        // home | sessions | machines
-  let view = "list";       // list | table | timeline
+  let nav   = "home";      // home | sessions | machines
+  let shape = "console";   // console | navigator | timeline  — one global choice
   let facet = "all";       // all | m:<id> | t:<id>
   let picked = SESSIONS[0].id;
-  let detail = null;       // table view's expanded session
-  let sheet = null;        // timeline view's overlay session
+  let detail = null;       // console browser's inline session
+  let sheet  = null;       // timeline's overlay session
   const openCaps = new Set([0]);
 
   const node = el(`<div class="vU">
@@ -1116,104 +1121,149 @@ function renderU(root) {
   : facet.startsWith("m:") ? MACHINES[facet.slice(2)].name
   : TOOL[facet.slice(2)].name;
 
-  /* ── Home — built once, shared by every view ───────────────────────── */
-  const home = () => `
-    <div class="viewhdr">
-      <h1>Home</h1><span class="spacer"></span>
-      <button class="btn sm">Restore…</button>
-      <button class="btn sm primary">Back up now</button>
-    </div>
-    <div class="homescroll scroll">
-      <div class="vA" style="display:block">
-        <div class="band">
-          <span class="shield">${icon.shield}</span>
-          <div class="headline">
-            <h1>Everything is backed up</h1>
-            <p>Last capture <span class="mono">${VAULT.lastCapture}</span> from <span class="mono">nimbus</span> · watching 9 adapters on 3 machines · 1 adapter needs attention</p>
-          </div>
-        </div>
-        <div class="stats">
-          <div class="stat"><div class="k">Sessions</div><div class="v">${VAULT.sessions}</div></div>
-          <div class="stat"><div class="k">Vault size</div><div class="v">${VAULT.size}</div></div>
-          <div class="stat"><div class="k">Captures</div><div class="v">${VAULT.captures.toLocaleString()}</div></div>
-          <div class="stat"><div class="k">Reaches back to</div><div class="v" style="font-size:15px">${VAULT.oldest}</div></div>
-          <div class="stat"><div class="k">Encryption</div><div class="v" style="font-size:13px;line-height:1.45">Unlocked<small>this device</small></div></div>
-        </div>
-        <div style="padding:20px 26px 100px;display:flex;flex-direction:column;gap:18px">
-          <div class="panel">
-            <header><h2>Needs attention</h2><span class="spacer"></span><span class="dim" style="font-size:11px">Healthy adapters stay quiet</span></header>
-            <div class="tablewrap"><table class="grid"><tbody>${
-              TOOLS.filter(t => t.state === "warn" || t.state === "crit").map(t => `<tr>
-                <td style="width:1px">${toolBadge(t.id)}</td>
-                <td><b style="font-weight:500">${esc(t.name)}</b><div class="dim" style="font-size:11px">${esc(t.note)}</div></td>
-                <td style="text-align:right">${statePill(t.state)}</td>
-                <td style="width:1px"><button class="btn sm">Fix</button></td>
-              </tr>`).join("")
-            }</tbody></table></div>
-          </div>
-          <div class="panel">
-            <header><h2>Latest captures</h2><span class="spacer"></span><button class="btn sm ghost" data-goto="timeline">See the timeline →</button></header>
-            <div class="tablewrap"><table class="grid"><tbody>${
-              CAPTURES.slice(0,4).map(c => `<tr>
-                <td class="mono dim" style="width:1px">${esc(c.day)} ${esc(c.time)}</td>
-                <td>${machineChip(c.machine)}</td>
-                <td>${c.sessions.length} session${c.sessions.length > 1 ? "s" : ""} · ${[...new Set(c.sessions.map(id => TOOL[sess(id).tool].name))].map(esc).join(", ")}</td>
-                <td class="num dim" style="text-align:right">${esc(c.size)}</td>
-              </tr>`).join("")
-            }</tbody></table></div>
-          </div>
-        </div>
-      </div>
-    </div>`;
+  const clearTransient = () => { detail = null; sheet = null; node.querySelector(".overlay")?.remove(); };
 
-  /* ── Sessions — one chrome, three interchangeable bodies ───────────── */
-  const sessionsShell = () => `
-    <div class="viewhdr">
-      <h1>Sessions</h1>
-      <span class="seg">
-        <button data-view="list">${icon.rows} List</button>
-        <button data-view="table">${icon.grid} Table</button>
-        <button data-view="timeline">${icon.clock} Timeline</button>
-      </span>
-      <span class="spacer"></span>
-      <span class="dim" style="font-size:11px" id="U-count"></span>
-      <input placeholder="Search ${VAULT.sessions} sessions…" />
-    </div>
-    <div class="work">
-      <div class="facets">
-        <button class="item" data-facet="all">${icon.list}<span>All sessions</span><span class="count">${VAULT.sessions}</span></button>
-        <div class="grouphdr">Machines</div>
-        ${Object.entries(MACHINES).map(([id,m]) => `<button class="item" data-facet="m:${id}"><span class="mchip" style="--mc:${m.hue}"></span><span>${esc(m.name)}</span><span class="count">${m.sessions}</span></button>`).join("")}
-        <div class="grouphdr">Adapters</div>
-        ${TOOLS.map(t => `<button class="item" data-facet="t:${t.id}">${toolBadge(t.id)}<span>${esc(t.name)}</span><span class="count">${t.n}</span></button>`).join("")}
-      </div>
-      <div class="canvas" id="U-canvas"></div>
-    </div>`;
+  const shapeSeg = () => `<span class="seg">
+    <button data-shape="console">${icon.grid} Console</button>
+    <button data-shape="navigator">${icon.rows} Navigator</button>
+    <button data-shape="timeline">${icon.clock} Timeline</button>
+  </span>`;
 
-  const listBody = () => {
-    const list = matches();
-    let rows = "";
+  const troubled = () => TOOLS.filter(t => t.state === "warn" || t.state === "crit");
+
+  const troubleRows = () => troubled().map(t => `<tr>
+    <td style="width:1px">${toolBadge(t.id)}</td>
+    <td><b style="font-weight:500">${esc(t.name)}</b><div class="dim" style="font-size:11px">${esc(t.note)}</div></td>
+    <td style="text-align:right">${statePill(t.state)}</td>
+    <td style="width:1px"><button class="btn sm">Fix</button></td>
+  </tr>`).join("");
+
+  const machineRows = () => Object.entries(MACHINES).map(([id,m]) => `<tr>
+    <td><div style="display:flex;align-items:center;gap:9px">${machineChip(id)}<span class="dim" style="font-size:11px">${esc(m.kind)}</span></div></td>
+    <td class="mono dim">${esc(m.os)}</td>
+    <td class="num">${m.sessions}</td>
+    <td class="mono dim">${esc(m.seen)}</td>
+    <td>${statePill("ok", "Remembered")}</td>
+  </tr>`).join("");
+
+  /* ── One capture stream, shared by Home/Timeline and Sessions/Timeline ── */
+  function captureStream(caps, keep) {
+    const inc = (id) => !keep || keep.has(id);
+    let html = "";
     DAYS.forEach(d => {
-      const inDay = list.filter(s => s.day === d);
-      if (!inDay.length) return;
-      rows += `<div class="daysep">${esc(d)}</div>` + inDay.map(s => `<button class="row" data-s="${s.id}" ${s.id === picked ? 'aria-current="true"' : ""}>
-        <span class="l1">${toolBadge(s.tool)}<span class="t">${esc(s.title)}</span><span class="when">${esc(s.time)}</span></span>
-        <span class="l2">${machineChip(s.machine)}<span class="proj">${esc(s.project)}</span><span class="mono" style="margin-left:auto;color:var(--text-mute);font-size:10px">${esc(s.size)}</span></span>
-      </button>`).join("");
+      const day = caps.filter(c => c.day === d && c.sessions.some(inc));
+      if (!day.length) return;
+      const n = day.reduce((a,c) => a + c.sessions.filter(inc).length, 0);
+      html += `<div class="daymark"><h3>${esc(d)}</h3><span class="n">${day.length} captures · ${n} sessions</span></div>`;
+      day.forEach(c => {
+        const i = CAPTURES.indexOf(c), isOpen = openCaps.has(i);
+        const mine = c.sessions.filter(inc);
+        const tools = [...new Set(mine.map(id => sess(id).tool))];
+        html += `<div class="cap" data-open="${isOpen ? 1 : 0}">
+          <button class="head" data-i="${i}">
+            <span class="time">${esc(c.time)}</span>
+            <span class="beads">${tools.map(() => `<span class="bead" style="--bead:${MACHINES[c.machine].hue}"></span>`).join("")}</span>
+            <span class="what"><b>${mine.length} session${mine.length > 1 ? "s" : ""}</b> from ${tools.map(t => esc(TOOL[t].name)).join(", ")} on ${esc(c.machine)}
+              ${c.trigger === "manual" ? `<span class="pill idle" style="margin-left:8px">Manual</span>` : ""}
+              ${c.warn ? `<span class="pill warn" style="margin-left:8px"><span class="dot"></span>${esc(c.warn)}</span>` : ""}
+            </span>
+            <span class="size">${esc(c.size)}</span>
+            <span class="chev">${icon.chev}</span>
+          </button>
+          ${isOpen ? `<div class="drawer">${mine.map(id => { const s = sess(id); return `<button data-s="${id}">
+            ${toolBadge(s.tool)}<span class="t">${esc(s.title)}</span>
+            <span class="mono dim" style="font-size:11px">${esc(s.project)}</span>
+            <span class="num dim" style="font-size:11px">${esc(s.size)}</span>
+            ${statePill(s.state === "ok" ? "ok" : "warn", s.resume)}
+          </button>`; }).join("")}</div>` : ""}
+        </div>`;
+      });
     });
-    const s = list.find(x => x.id === picked) ?? list[0];
-    return `<div class="vB" style="flex:1 1 auto;min-height:0">
-      <div class="list"><div class="scroll">${rows || `<p class="empty">No sessions captured here yet.</p>`}</div></div>
-      <div class="read scroll">${s ? `
-        <header>
-          <div class="top"><h2>${esc(s.title)}</h2><button class="btn sm">Export…</button><button class="btn sm primary">Restore</button></div>
-          <div class="meta">${sessionMeta(s)}<span>${statePill(s.state === "ok" ? "ok" : "warn", s.resume)}</span></div>
-        </header>
-        <div class="doc">${turnsHTML("bubble")}</div>` : `<p class="empty">Nothing selected.</p>`}</div>
-    </div>`;
-  };
+    return html || `<p class="empty">No captures match this filter.</p>`;
+  }
 
-  const tableBody = () => {
+  /* ── Home, in three shapes ─────────────────────────────────────────── */
+
+  const homeConsole = () => `
+    <div class="vA" style="display:block">
+      <div class="band">
+        <span class="shield">${icon.shield}</span>
+        <div class="headline">
+          <h1>Everything is backed up</h1>
+          <p>Last capture <span class="mono">${VAULT.lastCapture}</span> from <span class="mono">nimbus</span> · watching 9 adapters on 3 machines · 1 adapter needs attention</p>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="k">Sessions</div><div class="v">${VAULT.sessions}</div></div>
+        <div class="stat"><div class="k">Vault size</div><div class="v">${VAULT.size}</div></div>
+        <div class="stat"><div class="k">Captures</div><div class="v">${VAULT.captures.toLocaleString()}</div></div>
+        <div class="stat"><div class="k">Reaches back to</div><div class="v" style="font-size:15px">${VAULT.oldest}</div></div>
+        <div class="stat"><div class="k">Encryption</div><div class="v" style="font-size:13px;line-height:1.45">Unlocked<small>this device</small></div></div>
+      </div>
+      <div style="padding:20px 26px 100px;display:flex;flex-direction:column;gap:18px">
+        <div class="panel">
+          <header><h2>Needs attention</h2><span class="spacer"></span><span class="dim" style="font-size:11px">Healthy adapters stay quiet</span></header>
+          <div class="tablewrap"><table class="grid"><tbody>${troubleRows()}</tbody></table></div>
+        </div>
+        <div class="panel">
+          <header><h2>Latest captures</h2><span class="spacer"></span><button class="btn sm ghost" data-goto="sessions">See all sessions →</button></header>
+          <div class="tablewrap"><table class="grid"><tbody>${CAPTURES.slice(0,4).map(c => `<tr>
+            <td class="mono dim" style="width:1px">${esc(c.day)} ${esc(c.time)}</td>
+            <td>${machineChip(c.machine)}</td>
+            <td>${c.sessions.length} session${c.sessions.length > 1 ? "s" : ""} · ${[...new Set(c.sessions.map(id => TOOL[sess(id).tool].name))].map(esc).join(", ")}</td>
+            <td class="num dim" style="text-align:right">${esc(c.size)}</td>
+          </tr>`).join("")}</tbody></table></div>
+        </div>
+      </div>
+    </div>`;
+
+  const homeNavigator = () => `
+    <div class="vB" style="display:block">
+      <div class="vaultpane">
+        <h2>Vault</h2>
+        <p class="sub">${esc(VAULT.path)} — synced by ${esc(VAULT.sync)}, encrypted with ${esc(VAULT.encryption)}. Unlocked and remembered on this machine.</p>
+        <div class="vgrid">
+          <div><div class="k">Sessions</div><div class="v">${VAULT.sessions}</div></div>
+          <div><div class="k">Size</div><div class="v">${VAULT.size}</div></div>
+          <div><div class="k">Captures</div><div class="v">${VAULT.captures.toLocaleString()}</div></div>
+          <div><div class="k">Last capture</div><div class="v" style="font-size:14px">${esc(VAULT.lastCapture)}</div></div>
+        </div>
+        <div class="eyebrow" style="margin-bottom:8px">Adapters needing attention</div>
+        <div class="tablewrap" style="border:1px solid var(--line);border-radius:var(--r);margin-bottom:24px">
+          <table class="grid"><tbody>${troubleRows()}</tbody></table>
+        </div>
+        <div class="eyebrow" style="margin-bottom:8px">Machines</div>
+        <div class="tablewrap" style="border:1px solid var(--line);border-radius:var(--r)">
+          <table class="grid"><tbody>${machineRows()}</tbody></table>
+        </div>
+      </div>
+    </div>`;
+
+  const homeTimeline = () => `
+    <div class="vC" style="display:block">
+      <div class="ribbon">
+        <span class="health"><span class="pill ok"><span class="dot"></span>Protected</span><strong>Last capture ${esc(VAULT.lastCapture)}</strong></span>
+        <span class="sep"></span>
+        <span class="kv"><b>${VAULT.sessions}</b> sessions</span>
+        <span class="kv"><b>${VAULT.size}</b> in vault</span>
+        <span class="kv">back to <b>${esc(VAULT.oldest)}</b></span>
+        <span class="spacer"></span>
+        <span class="pill warn"><span class="dot"></span>${troubled().length} adapters need attention</span>
+      </div>
+      <div class="lanes">
+        <span class="lbl">Machines</span>
+        ${Object.entries(MACHINES).map(([id,m]) => `<span class="mchip" style="--mc:${m.hue}">${esc(m.name)}<span class="dim" style="font-size:10px">· ${esc(m.seen)}</span></span>`).join("")}
+      </div>
+      <div class="stream">${captureStream(CAPTURES.slice(0,6), null)}
+        <p class="dim" style="padding:6px 30px 40px;font-size:11px">Older captures live under Sessions — the vault reaches back to ${esc(VAULT.oldest)}.</p>
+      </div>
+    </div>`;
+
+  const homeBody = () => shape === "console" ? homeConsole() : shape === "navigator" ? homeNavigator() : homeTimeline();
+
+  /* ── Sessions, in the same three shapes ────────────────────────────── */
+
+  const browserConsole = () => {
     const list = matches();
     const inner = detail ? `
       <button class="btn ghost sm back">← ${esc(facetLabel())}</button>
@@ -1242,39 +1292,31 @@ function renderU(root) {
     </div>`;
   };
 
-  const timelineBody = () => {
-    const keep = new Set(matches().map(s => s.id));
-    const visible = CAPTURES.filter(c => c.sessions.some(id => keep.has(id)));
-    let stream = "";
+  const browserNavigator = () => {
+    const list = matches();
+    let rows = "";
     DAYS.forEach(d => {
-      const caps = visible.filter(c => c.day === d);
-      if (!caps.length) return;
-      const n = caps.reduce((a,c) => a + c.sessions.filter(id => keep.has(id)).length, 0);
-      stream += `<div class="daymark"><h3>${esc(d)}</h3><span class="n">${caps.length} captures · ${n} sessions</span></div>`;
-      caps.forEach(c => {
-        const i = CAPTURES.indexOf(c), isOpen = openCaps.has(i);
-        const mine = c.sessions.filter(id => keep.has(id));
-        const tools = [...new Set(mine.map(id => sess(id).tool))];
-        stream += `<div class="cap" data-open="${isOpen ? 1 : 0}">
-          <button class="head" data-i="${i}">
-            <span class="time">${esc(c.time)}</span>
-            <span class="beads">${tools.map(() => `<span class="bead" style="--bead:${MACHINES[c.machine].hue}"></span>`).join("")}</span>
-            <span class="what"><b>${mine.length} session${mine.length > 1 ? "s" : ""}</b> from ${tools.map(t => esc(TOOL[t].name)).join(", ")} on ${esc(c.machine)}
-              ${c.trigger === "manual" ? `<span class="pill idle" style="margin-left:8px">Manual</span>` : ""}
-              ${c.warn ? `<span class="pill warn" style="margin-left:8px"><span class="dot"></span>${esc(c.warn)}</span>` : ""}
-            </span>
-            <span class="size">${esc(c.size)}</span>
-            <span class="chev">${icon.chev}</span>
-          </button>
-          ${isOpen ? `<div class="drawer">${mine.map(id => { const s = sess(id); return `<button data-s="${id}">
-            ${toolBadge(s.tool)}<span class="t">${esc(s.title)}</span>
-            <span class="mono dim" style="font-size:11px">${esc(s.project)}</span>
-            <span class="num dim" style="font-size:11px">${esc(s.size)}</span>
-            ${statePill(s.state === "ok" ? "ok" : "warn", s.resume)}
-          </button>`; }).join("")}</div>` : ""}
-        </div>`;
-      });
+      const inDay = list.filter(s => s.day === d);
+      if (!inDay.length) return;
+      rows += `<div class="daysep">${esc(d)}</div>` + inDay.map(s => `<button class="row" data-s="${s.id}" ${s.id === picked ? 'aria-current="true"' : ""}>
+        <span class="l1">${toolBadge(s.tool)}<span class="t">${esc(s.title)}</span><span class="when">${esc(s.time)}</span></span>
+        <span class="l2">${machineChip(s.machine)}<span class="proj">${esc(s.project)}</span><span class="mono" style="margin-left:auto;color:var(--text-mute);font-size:10px">${esc(s.size)}</span></span>
+      </button>`).join("");
     });
+    const s = list.find(x => x.id === picked) ?? list[0];
+    return `<div class="vB" style="flex:1 1 auto;min-height:0">
+      <div class="list"><div class="scroll">${rows || `<p class="empty">No sessions captured here yet.</p>`}</div></div>
+      <div class="read scroll">${s ? `
+        <header>
+          <div class="top"><h2>${esc(s.title)}</h2><button class="btn sm">Export…</button><button class="btn sm primary">Restore</button></div>
+          <div class="meta">${sessionMeta(s)}<span>${statePill(s.state === "ok" ? "ok" : "warn", s.resume)}</span></div>
+        </header>
+        <div class="doc">${turnsHTML("bubble")}</div>` : `<p class="empty">Nothing selected.</p>`}</div>
+    </div>`;
+  };
+
+  const browserTimeline = () => {
+    const keep = new Set(matches().map(s => s.id));
     return `<div class="vC" style="flex:1 1 auto;min-height:0">
       <div class="lanes">
         <span class="lbl">Machines</span>
@@ -1284,46 +1326,54 @@ function renderU(root) {
         <div class="scrub"><span class="spine"></span>${
           ["Now", ...DAYS, "Jul", "Jun", "May", "Apr"].map((t,i) => `<button class="tick ${i === 0 ? "now" : ""}">${esc(t)}</button>`).join("")
         }</div>
-        <div class="stream scroll">${stream || `<p class="empty">No captures match this filter.</p>`}</div>
+        <div class="stream scroll">${captureStream(CAPTURES, keep)}</div>
       </div>
     </div>`;
   };
 
-  const machines = () => `
+  const sessionsBody = () => shape === "console" ? browserConsole() : shape === "navigator" ? browserNavigator() : browserTimeline();
+
+  /* ── Shells ────────────────────────────────────────────────────────── */
+
+  const homeShell = () => `
+    <div class="viewhdr">
+      <h1>Home</h1>${shapeSeg()}<span class="spacer"></span>
+      <button class="btn sm">Restore…</button>
+      <button class="btn sm primary">Back up now</button>
+    </div>
+    <div class="homescroll scroll" id="U-body"></div>`;
+
+  const sessionsShell = () => `
+    <div class="viewhdr">
+      <h1>Sessions</h1>${shapeSeg()}<span class="spacer"></span>
+      <span class="dim" style="font-size:11px" id="U-count"></span>
+      <input placeholder="Search ${VAULT.sessions} sessions…" />
+    </div>
+    <div class="work">
+      <div class="facets">
+        <button class="item" data-facet="all">${icon.list}<span>All sessions</span><span class="count">${VAULT.sessions}</span></button>
+        <div class="grouphdr">Machines</div>
+        ${Object.entries(MACHINES).map(([id,m]) => `<button class="item" data-facet="m:${id}"><span class="mchip" style="--mc:${m.hue}"></span><span>${esc(m.name)}</span><span class="count">${m.sessions}</span></button>`).join("")}
+        <div class="grouphdr">Adapters</div>
+        ${TOOLS.map(t => `<button class="item" data-facet="t:${t.id}">${toolBadge(t.id)}<span>${esc(t.name)}</span><span class="count">${t.n}</span></button>`).join("")}
+      </div>
+      <div class="canvas" id="U-body"></div>
+    </div>`;
+
+  const machinesShell = () => `
     <div class="viewhdr"><h1>Machines</h1><span class="spacer"></span><button class="btn sm">Add a machine…</button></div>
     <div class="homescroll scroll"><div class="vA" style="display:block"><div style="padding:20px 26px 100px">
       <div class="panel">
         <header><h2>Machines sharing this vault</h2></header>
         <div class="tablewrap"><table class="grid">
           <thead><tr><th>Machine</th><th>System</th><th>Sessions</th><th>Last seen</th><th>Vault key</th></tr></thead>
-          <tbody>${Object.entries(MACHINES).map(([id,m]) => `<tr>
-            <td><div style="display:flex;align-items:center;gap:9px">${machineChip(id)}<span class="dim" style="font-size:11px">${esc(m.kind)}</span></div></td>
-            <td class="mono dim">${esc(m.os)}</td><td class="num">${m.sessions}</td>
-            <td class="mono dim">${esc(m.seen)}</td><td>${statePill("ok", "Remembered")}</td>
-          </tr>`).join("")}</tbody>
+          <tbody>${machineRows()}</tbody>
         </table></div>
       </div>
       <p class="dim" style="margin-top:14px;font-size:11px;max-width:60ch">Each machine unlocks the vault once and remembers the key in its system keychain. Adding a fourth machine means typing the passphrase one time.</p>
     </div></div></div>`;
 
-  function drawCanvas() {
-    const canvas = main.querySelector("#U-canvas");
-    if (!canvas) return;
-    canvas.innerHTML = view === "list" ? listBody() : view === "table" ? tableBody() : timelineBody();
-
-    main.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === view)));
-    main.querySelectorAll(".facets .item").forEach(b => b.setAttribute("aria-current", String(b.dataset.facet === facet)));
-    const count = main.querySelector("#U-count");
-    if (count) count.textContent = `${matches().length} in ${facetLabel()}`;
-
-    canvas.querySelectorAll(".vB .row").forEach(r => r.onclick = () => { picked = r.dataset.s; drawCanvas(); });
-    canvas.querySelectorAll("tr.click").forEach(tr => tr.onclick = () => { detail = sess(tr.dataset.s); picked = tr.dataset.s; drawCanvas(); });
-    const back = canvas.querySelector(".back"); if (back) back.onclick = () => { detail = null; drawCanvas(); };
-    canvas.querySelectorAll(".cap .head").forEach(b => b.onclick = () => {
-      const i = +b.dataset.i; openCaps.has(i) ? openCaps.delete(i) : openCaps.add(i); drawCanvas();
-    });
-    canvas.querySelectorAll(".cap .drawer button").forEach(b => b.onclick = () => { sheet = sess(b.dataset.s); picked = b.dataset.s; drawSheet(); });
-  }
+  /* ── Render + wiring ───────────────────────────────────────────────── */
 
   function drawSheet() {
     node.querySelector(".overlay")?.remove();
@@ -1341,26 +1391,42 @@ function renderU(root) {
     (node.querySelector(".vC") ?? node).append(ov);
   }
 
-  function draw() {
-    sheet = null;
-    node.querySelector(".overlay")?.remove();
-    main.innerHTML = nav === "home" ? home() : nav === "sessions" ? sessionsShell() : machines();
+  function drawBody() {
+    const body = main.querySelector("#U-body");
+    if (!body) return;
+    body.innerHTML = nav === "home" ? homeBody() : sessionsBody();
 
-    const clearTransient = () => { detail = null; sheet = null; node.querySelector(".overlay")?.remove(); };
-    main.querySelectorAll(".seg button").forEach(b => b.onclick = () => { view = b.dataset.view; clearTransient(); drawCanvas(); });
+    main.querySelectorAll("[data-shape]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.shape === shape)));
+    main.querySelectorAll(".facets .item").forEach(b => b.setAttribute("aria-current", String(b.dataset.facet === facet)));
+    const count = main.querySelector("#U-count");
+    if (count) count.textContent = `${matches().length} in ${facetLabel()}`;
+
+    body.querySelectorAll(".row").forEach(r => r.onclick = () => { picked = r.dataset.s; drawBody(); });
+    body.querySelectorAll("tr.click").forEach(tr => tr.onclick = () => { detail = sess(tr.dataset.s); picked = tr.dataset.s; drawBody(); });
+    const back = body.querySelector(".back"); if (back) back.onclick = () => { detail = null; drawBody(); };
+    body.querySelectorAll(".cap .head").forEach(b => b.onclick = () => {
+      const i = +b.dataset.i; openCaps.has(i) ? openCaps.delete(i) : openCaps.add(i); drawBody();
+    });
+    body.querySelectorAll(".cap .drawer button").forEach(b => b.onclick = () => { sheet = sess(b.dataset.s); picked = b.dataset.s; drawSheet(); });
+    const goto = body.querySelector("[data-goto]");
+    if (goto) goto.onclick = () => { nav = goto.dataset.goto; syncRail(); draw(); };
+  }
+
+  function draw() {
+    clearTransient();
+    main.innerHTML = nav === "home" ? homeShell() : nav === "sessions" ? sessionsShell() : machinesShell();
+
+    main.querySelectorAll("[data-shape]").forEach(b => b.onclick = () => { shape = b.dataset.shape; clearTransient(); drawBody(); });
     main.querySelectorAll(".facets .item").forEach(b => b.onclick = () => {
       facet = b.dataset.facet; clearTransient();
       const f = matches(); if (f.length && !f.some(s => s.id === picked)) picked = f[0].id;
-      drawCanvas();
+      drawBody();
     });
-    const jump = main.querySelector("[data-goto]");
-    if (jump) jump.onclick = () => { nav = "sessions"; view = "timeline"; syncRail(); draw(); };
 
-    if (nav === "sessions") drawCanvas();
+    if (nav !== "machines") drawBody();
   }
 
   const syncRail = () => node.querySelectorAll("[data-nav]").forEach(x => x.setAttribute("aria-current", String(x.dataset.nav === nav)));
-
   node.querySelectorAll("[data-nav]").forEach(b => b.onclick = () => { nav = b.dataset.nav; syncRail(); draw(); });
 
   draw();
@@ -1375,7 +1441,11 @@ const VARIANTS = [
   { key:"B", name:"Navigator (original)", render:renderB },
   { key:"C", name:"Timeline (original)",  render:renderC },
 ];
+// "Auto" is the shipping default (#16): follow the OS — Slate in dark, Paper in
+// light — with no setting to think about. Slate/Paper/Terminal are real, equal
+// user-facing choices that override it.
 const SKINS = [
+  { key:"",         label:"Auto" },
   { key:"slate",    label:"Slate" },
   { key:"paper",    label:"Paper" },
   { key:"terminal", label:"Terminal" },
@@ -1399,7 +1469,8 @@ function syncURL() {
 function applySkin() {
   if (skin) document.documentElement.setAttribute("data-skin", skin);
   else document.documentElement.removeAttribute("data-skin");
-  document.querySelectorAll("#skins button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.skin === skin)));
+  document.querySelectorAll("#skins button").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.skin === (skin ?? ""))));
 }
 
 function show() {
@@ -1414,7 +1485,7 @@ function show() {
 document.getElementById("skins").innerHTML =
   SKINS.map(s => `<button data-skin="${s.key}" aria-pressed="false">${s.label}</button>`).join("");
 document.querySelectorAll("#skins button").forEach(b => b.onclick = () => {
-  skin = (skin === b.dataset.skin) ? null : b.dataset.skin;
+  skin = b.dataset.skin || null;   // "" is Auto — clear the stamp, follow the OS
   applySkin(); syncURL();
 });
 

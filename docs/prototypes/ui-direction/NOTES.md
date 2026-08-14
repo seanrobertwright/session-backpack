@@ -15,25 +15,45 @@ the user can select their view from one of the 3?"_ That is now **variant U**, t
 default when the file opens. A, B and C are kept alongside it as the originals the
 composition came from.
 
-The refinement layered on top: the three are **views over the same two nouns**
-(captures and sessions), not three apps — same data, same actions, same reader,
-different navigation shape. So the switcher goes on the *browser*, and Home is
-built **once**:
+**Home switches too** — settled in the second round. The preference is therefore
+**global and singular**: pick Console, Navigator or Timeline once, and both Home
+and Sessions adopt that shape. Each original direction stays intact end to end
+rather than being mixed into nine hybrids, and there is one setting to manage
+rather than two.
 
-- **Home** is always A's health band + stats + a "Needs attention" exception list.
-  One answer to "am I safe?", and the app still *opens* on backup status — which
-  keeps [#8](https://github.com/seanrobertwright/session-backpack/issues/8)'s
-  positioning (backup is the product, browsing is supporting cast) intact even
-  though a full browser ships.
-- **Sessions** carries a segmented **List / Table / Timeline** switcher.
-- **One filter sidebar** is shared by all three views, and so is the selection —
-  filter to `pilot` in List, switch to Timeline, still `pilot`. That shared state
-  is the actual claim being tested; without it the switcher is three apps in a
-  trenchcoat.
+| Shape | Home | Sessions |
+|---|---|---|
+| **Console** | Shield band + stat strip + "Needs attention" | Dense table, inline session detail |
+| **Navigator** | Vault pane — path, encryption, stat tiles, exceptions, machines | List + reading pane |
+| **Timeline** | Health ribbon + machine lanes + recent capture stream | Capture spine + scrubber, session opens over the top |
 
-Cost of this over picking one: one dashboard instead of three, plus three list
-bodies instead of one. The reader, the filters, the actions and the vault model
-are all built once regardless.
+What the **shell** owns, and therefore what never changes when the shape does:
+
+- the rail (Home / Sessions / Machines / Settings),
+- the filter facets and the current filter,
+- the selected session.
+
+Filter to `pilot` in Timeline, switch to Console, still `pilot`. That shared state
+is the whole claim: without it the switcher is three apps in a trenchcoat.
+
+**On positioning.** With Home switchable, the app no longer always *opens* on a
+backup-status band — Navigator's Home leads with the vault, Timeline's with a
+capture stream. All three still answer "am I safe?" above the fold (band, stat
+grid, or ribbon respectively), but this is a real softening of
+[#8](https://github.com/seanrobertwright/session-backpack/issues/8)'s "browsing is
+supporting cast". Recorded deliberately, not by accident.
+
+Cost: three Home treatments and three browser treatments. The reader, filters,
+actions, adapters and vault model are built once regardless.
+
+## Theming — decided
+
+- **Auto is the shipping default**: follow the OS, Slate in dark, Paper in light,
+  nothing to configure. It is now an explicit fourth option in the picker rather
+  than a hidden "click the active skin to turn it off" state.
+- **Terminal ships as a real user-facing option**, not just a proof that the token
+  seam holds. It swaps the typeface and drops the corner radius to `0` as well as
+  the palette — so any future skin may change more than hue.
 
 ## Shape
 
@@ -88,12 +108,19 @@ Worth agreeing or rejecting explicitly, since each shapes the spec:
 
 ## Verdict
 
-**All three win, as user-selectable views over one home.** See "Outcome" above.
-
-Open sub-decision at time of writing: whether Home stays fixed (as built) or is
-itself one of the switchable views. Built fixed, on the argument that a dashboard
-that changes shape gives "am I safe?" more than one answer.
+**Locked.** All three ship as one global, user-selectable view shape covering both
+Home and Sessions; Auto/OS-following theme by default with Terminal as a real
+option. Nothing about this prototype is still open.
 
 When folding into real code: keep U, delete A, B and C along with the prototype
 switcher bar. The variant components were written under prototype constraints —
-rewrite, don't promote.
+no tests, no error handling, `innerHTML` throughout with hardcoded fixtures —
+so rewrite, don't promote.
+
+Two things this prototype does **not** answer, left for later tickets:
+
+- What the session reader actually renders per adapter format (markdown, code,
+  tool calls, thinking blocks, images) — it fakes a generic six-turn transcript.
+- Where the view-shape and theme preferences are stored. They are per-machine UI
+  state, so almost certainly alongside the per-machine SQLite index rather than
+  in the synced vault — but that is the vault-format ticket's call, not this one's.
