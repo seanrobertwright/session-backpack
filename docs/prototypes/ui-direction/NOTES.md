@@ -8,11 +8,39 @@ Map: [Wayfinder map: Backpack v1 spec](https://github.com/seanrobertwright/sessi
 What should Backpack look and feel like? Three directions for the vault dashboard
 and the session browser, concrete enough to react to.
 
+## Outcome — all three ship, as user-selectable views
+
+Sean's call after the first round: _"I actually love all three — can we have it so
+the user can select their view from one of the 3?"_ That is now **variant U**, the
+default when the file opens. A, B and C are kept alongside it as the originals the
+composition came from.
+
+The refinement layered on top: the three are **views over the same two nouns**
+(captures and sessions), not three apps — same data, same actions, same reader,
+different navigation shape. So the switcher goes on the *browser*, and Home is
+built **once**:
+
+- **Home** is always A's health band + stats + a "Needs attention" exception list.
+  One answer to "am I safe?", and the app still *opens* on backup status — which
+  keeps [#8](https://github.com/seanrobertwright/session-backpack/issues/8)'s
+  positioning (backup is the product, browsing is supporting cast) intact even
+  though a full browser ships.
+- **Sessions** carries a segmented **List / Table / Timeline** switcher.
+- **One filter sidebar** is shared by all three views, and so is the selection —
+  filter to `pilot` in List, switch to Timeline, still `pilot`. That shared state
+  is the actual claim being tested; without it the switcher is three apps in a
+  trenchcoat.
+
+Cost of this over picking one: one dashboard instead of three, plus three list
+bodies instead of one. The reader, the filters, the actions and the vault model
+are all built once regardless.
+
 ## Shape
 
 One self-contained `index.html` — no build step, open it in any browser.
 
-- `?variant=A|B|C` switches direction. Floating bar bottom-centre, or `←` / `→`.
+- `?variant=U|A|B|C` switches direction (U is the default). Floating bar
+  bottom-centre, or `←` / `→`.
 - `?skin=slate|paper|terminal` switches theme, from the title bar. With no skin
   chosen the page follows the viewer's light/dark setting.
 - Data is fake but **identical across all three variants** — same 3 machines,
@@ -60,7 +88,12 @@ Worth agreeing or rejecting explicitly, since each shapes the spec:
 
 ## Verdict
 
-_Not yet locked — awaiting the HITL reaction on ticket #16._
+**All three win, as user-selectable views over one home.** See "Outcome" above.
 
-Record here: which direction won, which pieces were stolen from the losers, and
-why. Then delete the losing variants and the switcher.
+Open sub-decision at time of writing: whether Home stays fixed (as built) or is
+itself one of the switchable views. Built fixed, on the argument that a dashboard
+that changes shape gives "am I safe?" more than one answer.
+
+When folding into real code: keep U, delete A, B and C along with the prototype
+switcher bar. The variant components were written under prototype constraints —
+rewrite, don't promote.
