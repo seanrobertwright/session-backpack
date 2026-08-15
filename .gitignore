@@ -13,6 +13,13 @@ target
 # Contains mutation testing data
 **/mutants.out*/
 
+# Claude Code scratch worktrees
+#  Each entry here is a full second checkout of this repo, created by agent
+#  sessions working in isolation. Their commits live on real branches that are
+#  pushed normally, so nothing under here is ever the only copy of anything.
+#  Deliberately scoped to worktrees/ so committed .claude config stays tracked.
+.claude/worktrees/
+
 # RustRover
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
