@@ -24,13 +24,17 @@ Skills that touch the domain (`to-spec`, `to-tickets`, `implement`, `tdd`, `tria
 
 ## Current state
 
-`CONTEXT.md` **does not exist yet** — this is a greenfield repo whose design currently lives in
-the closed decision tickets of
+Seeded. [`CONTEXT.md`](../../CONTEXT.md) holds the glossary and
+[`docs/adr/`](../adr/) holds ten ADRs, both written by
+[Assemble the v1 spec #17](https://github.com/seanrobertwright/session-backpack/issues/17) alongside
+[`docs/spec/v1.md`](../spec/v1.md) — the design reference folded from the eighteen closed decision
+tickets of
 [Wayfinder map: Backpack v1 spec #1](https://github.com/seanrobertwright/session-backpack/issues/1).
 
-Seeding it is part of
-[Assemble the v1 spec #17](https://github.com/seanrobertwright/session-backpack/issues/17), which
-inherits the session / branch / capture vocabulary from
-[#13](https://github.com/seanrobertwright/session-backpack/issues/13). This matters more than it
-looks: every `implement` session starts with **cleared context** against this repo, so until the
-glossary is in-tree each one would have to re-read the tracker to learn the language.
+**Read `CONTEXT.md` before the spec.** Every `implement` session starts with cleared context against
+this repo, and the glossary is what stops each one having to re-read the tracker to learn the
+language. Its closing section — *words we deliberately do not use* — is load-bearing, not
+decoration: "GC" and "retention" both name mechanisms this design explicitly rejected.
+
+Ticket resolutions on the map remain the record of **why**; the spec is the record of **what**. Where
+the two disagree, the spec is current.
